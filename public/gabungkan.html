@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Axion PDF - Gabungkan PDF</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -162,23 +162,24 @@
             btnText.innerText = "Memproses...";
             btnIcon.classList.add('animate-spin');
 
-            const formData = new FormData();
-            selectedFiles.forEach(file => {
-                formData.append('pdfFiles', file);
-            });
-
             try {
-                const response = await fetch('/api/merge', {
-                    method: 'POST',
-                    body: formData
-                });
+                // Initialize a new PDF Document
+                const { PDFDocument } = PDFLib;
+                const mergedPdf = await PDFDocument.create();
 
-                if (!response.ok) {
-                    throw new Error('Gagal menggabungkan PDF');
+                // Loop through selected files
+                for (let file of selectedFiles) {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfDoc = await PDFDocument.load(arrayBuffer);
+                    const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                    copiedPages.forEach((page) => mergedPdf.addPage(page));
                 }
 
+                // Serialize to bytes
+                const pdfBytes = await mergedPdf.save();
+
                 // Download the resulting PDF
-                const blob = await response.blob();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -187,7 +188,7 @@
                 a.click();
                 a.remove();
                 
-                alert('PDF Berhasil Digabungkan dan Diunduh!');
+                alert('PDF Berhasil Digabungkan dan Diunduh secara Offline!');
                 selectedFiles = []; // reset
             } catch (error) {
                 alert('Terjadi kesalahan: ' + error.message);
